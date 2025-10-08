@@ -1,0 +1,12 @@
+# Ignore README if you don't want it committed
+README.md
+
+# Typical Python ignores (optional)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+*.egg-info/
