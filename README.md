@@ -2,7 +2,7 @@
 
 A simple **FastAPI web service** that takes a ZIP file of `.log` / `.txt` files, parses them, and generates a merged, timestamp-sorted **CSV** for download.
 
-Hosted on [Render](https://render.com), so colleagues can upload their ZIPs directly via the browser — no manual Colab runs needed.
+Hosted on [Render](https://render.com), can upload their ZIPs directly via the browser — no manual Colab runs needed.
 
 ---
 
@@ -45,6 +45,7 @@ Hosted on [Render](https://render.com), so colleagues can upload their ZIPs dire
 ```
 .
 ├── app.py              # Main FastAPI app
+├── index.html          # Frontend for file uploads
 ├── requirements.txt    # Dependencies
 └── README.md           # Documentation
 ```
@@ -57,8 +58,8 @@ If you want to run locally:
 
 ```bash
 # Clone the repo
-git clone https://github.com/<your-org>/<repo-name>.git
-cd <repo-name>
+git clone https://github.com/anjaya02/logs-conversion.git
+cd logs-conversion
 
 # Install dependencies
 pip install -r requirements.txt

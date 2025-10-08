@@ -1,6 +1,4 @@
-# Keep README.md in the repository
-
-# Typical Python ignores (optional)
+# Typical Python ignores 
 __pycache__/
 *.pyc
 *.pyo
