@@ -1,5 +1,4 @@
-# Ignore README if you don't want it committed
-README.md
+# Keep README.md in the repository
 
 # Typical Python ignores (optional)
 __pycache__/
