@@ -111,7 +111,3 @@ Open: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 - **Pandas** — log parsing & CSV generation
 - **Uvicorn** — ASGI server
 - **Render** — hosting
-
----
-
-Would you like me to also add a **“Usage GIF” or screenshots section** in the README (so your colleagues see exactly what the upload page looks like)?
