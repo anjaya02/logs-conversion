@@ -4,6 +4,7 @@ import pandas as pd
 import zipfile, os, json
 from pathlib import Path
 import tempfile
+from fastapi.responses import HTMLResponse
 
 app = FastAPI()
 
@@ -89,3 +90,21 @@ async def upload_zip(file: UploadFile = File(...)):
 @app.get("/")
 def home():
     return {"message": "Upload your log ZIP via POST /upload"}
+
+
+@app.get("/", response_class=HTMLResponse)
+def main_form():
+    return """
+    <html>
+        <head>
+            <title>Log Converter</title>
+        </head>
+        <body style="font-family: sans-serif; margin: 40px;">
+            <h2>Upload ZIP file → Get CSV</h2>
+            <form action="/upload" enctype="multipart/form-data" method="post">
+                <input type="file" name="file" accept=".zip" required>
+                <button type="submit">Convert</button>
+            </form>
+        </body>
+    </html>
+    """
