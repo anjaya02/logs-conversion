@@ -16,6 +16,52 @@
         background-color: #f4f7f6;
         color: #333;
       }
+
+      /* Loading Screen Styles */
+      #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #f4f7f6;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        transition: opacity 0.5s ease-out;
+      }
+
+      #loading-screen.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid rgba(0, 123, 255, 0.1);
+        border-radius: 50%;
+        border-top-color: #007bff;
+        animation: spin 1s ease-in-out infinite;
+        margin-bottom: 20px;
+      }
+
+      .loading-text {
+        font-size: 18px;
+        color: #555;
+        margin-bottom: 10px;
+      }
+
+      .loading-subtext {
+        font-size: 14px;
+        color: #777;
+        text-align: center;
+        max-width: 300px;
+        line-height: 1.4;
+      }
+
       #app-container {
         background: white;
         padding: 40px;
@@ -23,6 +69,12 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         text-align: center;
         width: 400px;
+        opacity: 0;
+        transition: opacity 0.5s ease-in;
+      }
+
+      #app-container.visible {
+        opacity: 1;
       }
       h2 {
         margin-top: 0;
@@ -105,6 +157,17 @@
     </style>
   </head>
   <body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Starting Log Converter...</div>
+      <div class="loading-subtext">
+        The server might be waking up from sleep. This usually takes 30-60
+        seconds on first visit.
+      </div>
+    </div>
+
+    <!-- Main App -->
     <div id="app-container">
       <h2>Upload ZIP → Get CSV</h2>
       <form id="upload-form">
@@ -121,6 +184,80 @@
       const statusDiv = document.getElementById("status");
       const spinner = document.getElementById("spinner");
       const fileInput = form.querySelector('input[type="file"]');
+      const loadingScreen = document.getElementById("loading-screen");
+      const appContainer = document.getElementById("app-container");
+
+      // Function to check if server is ready
+      // Replace your existing checkServerStatus function with this one
+      async function checkServerStatus() {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        try {
+          const response = await fetch(`/health?t=${new Date().getTime()}`, {
+            method: "GET",
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId); // Clear the timeout if the request succeeds
+          return response.ok;
+        } catch (error) {
+          clearTimeout(timeoutId); // Clear the timeout if the request fails
+          return false;
+        }
+      }
+
+      // Initialize the app
+      async function initializeApp() {
+        let attempts = 0;
+        const maxAttempts = 12; // 12 attempts = ~2 minutes
+
+        while (attempts < maxAttempts) {
+          const isReady = await checkServerStatus();
+
+          if (isReady) {
+            // Server is ready, hide loading screen and show app
+            loadingScreen.classList.add("hidden");
+            appContainer.classList.add("visible");
+            return;
+          }
+
+          attempts++;
+
+          // Update loading text based on attempts
+          const loadingText = document.querySelector(".loading-text");
+          const subText = document.querySelector(".loading-subtext");
+
+          if (attempts <= 3) {
+            loadingText.textContent = "Starting Log Converter...";
+          } else if (attempts <= 6) {
+            loadingText.textContent = "Waking up server...";
+            subText.textContent =
+              "The server is starting up. This may take up to 2 minutes on Render's free tier.";
+          } else if (attempts <= 9) {
+            loadingText.textContent = "Almost ready...";
+            subText.textContent =
+              "Still initializing. Thank you for your patience.";
+          } else {
+            loadingText.textContent = "Taking longer than expected...";
+            subText.textContent =
+              "The server should be ready soon. You can also try refreshing the page.";
+          }
+
+          // Wait 10 seconds before next attempt
+          await new Promise((resolve) => setTimeout(resolve, 10000));
+        }
+
+        // If we get here, show an error state
+        const loadingText = document.querySelector(".loading-text");
+        const subText = document.querySelector(".loading-subtext");
+        loadingText.textContent = "Connection Issue";
+        loadingText.style.color = "#d93025";
+        subText.innerHTML =
+          "Unable to connect to the server. Please <a href='javascript:location.reload()' style='color: #007bff;'>refresh the page</a> to try again.";
+      }
+
+      // Start initialization when page loads
+      window.addEventListener("DOMContentLoaded", initializeApp);
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -129,12 +266,17 @@
         submitButton.disabled = true;
         submitButton.textContent = "Processing...";
         spinner.style.display = "block";
-        statusDiv.textContent =
-          "Uploading and processing file. This may take a moment, especially if the server is waking up...";
+        statusDiv.textContent = "Uploading and processing file...";
         statusDiv.className = "";
 
         const formData = new FormData();
         formData.append("file", fileInput.files[0]);
+
+        // Show extended loading message after 5 seconds
+        const extendedLoadingTimeout = setTimeout(() => {
+          statusDiv.textContent =
+            "Still processing... This may take longer if the server was sleeping.";
+        }, 5000);
 
         try {
           const response = await fetch("/upload", {
@@ -142,18 +284,31 @@
             body: formData,
           });
 
+          clearTimeout(extendedLoadingTimeout);
+
           if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || "An unknown error occurred.");
           }
 
           // --- Handle File Download ---
+          const disposition = response.headers.get("content-disposition");
+          let filename = "merged_sorted.csv"; // A fallback filename
+
+          if (disposition && disposition.indexOf("attachment") !== -1) {
+            const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+            const matches = filenameRegex.exec(disposition);
+            if (matches != null && matches[1]) {
+              filename = matches[1].replace(/['"]/g, "");
+            }
+          }
+
           const blob = await response.blob();
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.style.display = "none";
           a.href = url;
-          a.download = "merged_sorted.csv"; // The filename to save as
+          a.download = filename; // Use the dynamic filename from the server
           document.body.appendChild(a);
           a.click();
           window.URL.revokeObjectURL(url);
