@@ -87,11 +87,6 @@ async def upload_zip(file: UploadFile = File(...)):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-@app.get("/")
-def home():
-    return {"message": "Upload your log ZIP via POST /upload"}
-
-
 @app.get("/", response_class=HTMLResponse)
 def main_form():
     return """
