@@ -78,7 +78,7 @@ async def upload_zip(file: UploadFile = File(...)):
             merged_df = pd.concat(dfs, ignore_index=True)
             merged_df.sort_values("Timestamp", inplace=True, ignore_index=True)
 
-            output_file = os.path.join(tmpdir, "merged_sorted.csv")
+            output_file = "/tmp/merged_sorted.csv"
             merged_df.to_csv(output_file, index=False, date_format="%Y-%m-%d %H:%M:%S")
 
             return FileResponse(output_file, filename="merged_sorted.csv", media_type="text/csv")
