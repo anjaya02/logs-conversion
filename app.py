@@ -107,3 +107,10 @@ def main_form():
             return HTMLResponse(content=f.read())
     except FileNotFoundError:
         return JSONResponse(status_code=404, content={"error": "index.html not found"})
+    
+
+
+@app.get("/health")
+@app.head("/health")
+def health():
+    return {"status": "ok"}
