@@ -8,20 +8,21 @@ Hosted on [Render](https://render.com), so colleagues can upload their ZIPs dire
 
 ## 🚀 Features
 
-* Upload a `.zip` containing `.log` or `.txt` files.
-* Parses logs line by line, extracting structured fields:
+- Upload a `.zip` containing `.log` or `.txt` files.
+- Parses logs line by line, extracting structured fields:
 
-  * **Service Id**
-  * **Vno**
-  * **Ano**
-  * **Rt Area**
-  * **URL**
-  * **Stayed Time**
-  * **App Version**
-  * **Timestamp**
-* Merges all logs into a single dataframe.
-* Sorts rows by timestamp.
-* Returns a downloadable **CSV file**.
+  - **Service Id**
+  - **Vno**
+  - **Ano**
+  - **Rt Area**
+  - **URL**
+  - **Stayed Time**
+  - **App Version**
+  - **Timestamp**
+
+- Merges all logs into a single dataframe.
+- Sorts rows by timestamp.
+- Returns a downloadable **CSV file**.
 
 ---
 
@@ -31,9 +32,10 @@ Hosted on [Render](https://render.com), so colleagues can upload their ZIPs dire
 2. Upload a `.zip` file containing log files.
 3. The service will:
 
-   * Extract logs
-   * Parse valid entries
-   * Merge & sort them
+   - Extract logs
+   - Parse valid entries
+   - Merge & sort them
+
 4. Your browser will download the result as **`merged_sorted.csv`**.
 
 ---
@@ -67,9 +69,9 @@ uvicorn app:app --reload --port 8000
 
 Open: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
-* Upload page → `/`
-* API docs → `/docs`
-* Upload endpoint → `/upload`
+- Upload page → `/`
+- API docs → `/docs`
+- Upload endpoint → `/upload`
 
 ---
 
@@ -78,35 +80,37 @@ Open: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 1. Push this repo to GitHub.
 2. On Render:
 
-   * **New → Web Service**
-   * Build Command:
+   - **New → Web Service**
+   - Build Command:
 
      ```bash
      pip install -r requirements.txt
      ```
-   * Start Command:
+
+   - Start Command:
 
      ```bash
      uvicorn app:app --host 0.0.0.0 --port 10000
      ```
+
 3. Render will give you a public URL (e.g. `https://logs-conversion.onrender.com`).
 
 ---
 
 ## ⚠️ Notes
 
-* Only `.zip` uploads are supported.
-* If no valid logs are parsed, you’ll see an error message.
-* CSV filename defaults to `merged_sorted.csv` (you can customize if needed).
+- Only `.zip` uploads are supported.
+- If no valid logs are parsed, you’ll see an error message.
+- CSV filename defaults to `merged_sorted.csv` (you can customize if needed).
 
 ---
 
 ## ✅ Tech Stack
 
-* **FastAPI** — lightweight web framework
-* **Pandas** — log parsing & CSV generation
-* **Uvicorn** — ASGI server
-* **Render** — hosting
+- **FastAPI** — lightweight web framework
+- **Pandas** — log parsing & CSV generation
+- **Uvicorn** — ASGI server
+- **Render** — hosting
 
 ---
 
