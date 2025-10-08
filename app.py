@@ -1,10 +1,8 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 import pandas as pd
-import zipfile, os, json
+import zipfile, os, json, tempfile, shutil
 from pathlib import Path
-import tempfile
-from fastapi.responses import HTMLResponse
 
 app = FastAPI()
 
@@ -20,7 +18,7 @@ def generate_df(file_path):
                 rest, json_payload = rest.rsplit("] ", 1)
                 parts = rest.split()
                 url, status, rt_ms = parts[2:5]
-
+                
                 data = json.loads(json_payload)
 
                 try:
@@ -39,67 +37,73 @@ def generate_df(file_path):
                     "Timestamp":   timestamp
                 })
             except Exception:
-                # skip invalid line
+                # Silently skip invalid lines in this simplified version
                 pass
 
     df = pd.DataFrame(rows)
     if df.empty:
         return df
+    
     df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
+    # Drop rows where timestamp could not be parsed
+    df.dropna(subset=['Timestamp'], inplace=True)
+    
     cols = ["Service Id", "Vno", "Ano", "Rt Area", "URL", "Stayed Time", "App Version", "Timestamp"]
     return df[cols]
 
 
 @app.post("/upload")
-async def upload_zip(file: UploadFile = File(...)):
+async def upload_zip(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    # Use a temporary directory that we can clean up later
+    tmpdir = tempfile.mkdtemp()
+
     try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            zip_path = os.path.join(tmpdir, file.filename)
-            with open(zip_path, "wb") as f:
-                f.write(await file.read())
+        # Securely save the uploaded file by using its base name
+        safe_filename = Path(file.filename).name
+        zip_path = os.path.join(tmpdir, safe_filename)
 
-            # extract
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(tmpdir)
+        # Stream the file to disk to avoid high memory usage
+        with open(zip_path, "wb") as f:
+            shutil.copyfileobj(file.file, f)
 
-            log_files = list(Path(tmpdir).glob("*.txt")) + list(Path(tmpdir).glob("*.log"))
-            if not log_files:
-                return JSONResponse({"error": "No .txt or .log files found."}, status_code=400)
+        # Extract files
+        extract_path = os.path.join(tmpdir, 'extracted')
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(extract_path)
 
-            dfs = []
-            for log in log_files:
-                df = generate_df(log)
-                if not df.empty:
-                    dfs.append(df)
+        log_files = list(Path(extract_path).rglob("*.txt")) + list(Path(extract_path).rglob("*.log"))
+        if not log_files:
+            return JSONResponse({"error": "No .txt or .log files found in the ZIP archive."}, status_code=400)
 
-            if not dfs:
-                return JSONResponse({"error": "No valid log entries parsed."}, status_code=400)
+        all_dfs = [generate_df(log) for log in log_files]
+        # Filter out empty dataframes
+        valid_dfs = [df for df in all_dfs if not df.empty]
 
-            merged_df = pd.concat(dfs, ignore_index=True)
-            merged_df.sort_values("Timestamp", inplace=True, ignore_index=True)
+        if not valid_dfs:
+            return JSONResponse({"error": "No valid log entries could be parsed from the files."}, status_code=400)
 
-            output_file = "/tmp/merged_sorted.csv"
-            merged_df.to_csv(output_file, index=False, date_format="%Y-%m-%d %H:%M:%S")
+        merged_df = pd.concat(valid_dfs, ignore_index=True)
+        merged_df.sort_values("Timestamp", inplace=True, ignore_index=True)
 
-            return FileResponse(output_file, filename="merged_sorted.csv", media_type="text/csv")
+        # Create the output file within the unique temporary directory
+        output_file = os.path.join(tmpdir, "merged_sorted.csv")
+        merged_df.to_csv(output_file, index=False, date_format="%Y-%m-%d %H:%M:%S")
+
+        # Add a background task to delete the entire temp directory after the response is sent
+        background_tasks.add_task(shutil.rmtree, tmpdir)
+
+        return FileResponse(output_file, filename="merged_sorted.csv", media_type="text/csv")
 
     except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+        # Clean up the directory in case of an error before returning
+        background_tasks.add_task(shutil.rmtree, tmpdir)
+        return JSONResponse({"error": f"An unexpected error occurred: {str(e)}"}, status_code=500)
 
 
 @app.get("/", response_class=HTMLResponse)
 def main_form():
-    return """
-    <html>
-        <head>
-            <title>Log Converter</title>
-        </head>
-        <body style="font-family: sans-serif; margin: 40px;">
-            <h2>Upload ZIP file → Get CSV</h2>
-            <form action="/upload" enctype="multipart/form-data" method="post">
-                <input type="file" name="file" accept=".zip" required>
-                <button type="submit">Convert</button>
-            </form>
-        </body>
-    </html>
-    """
+    try:
+        with open("index.html", "r") as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+        return JSONResponse(status_code=404, content={"error": "index.html not found"})
