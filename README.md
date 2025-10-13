@@ -102,7 +102,6 @@ Open: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
 - Only `.zip` uploads are supported.
 - If no valid logs are parsed, you’ll see an error message.
-- CSV filename defaults to `merged_sorted.csv` (you can customize if needed).
 
 ---
 
